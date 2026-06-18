@@ -18,6 +18,7 @@ find_package(std_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4.5 REQUIRED)
 find_package(hikcamera  REQUIRED)
+find_package(cv_bridge REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 
@@ -36,12 +37,12 @@ add_executable(hikcamera_ros_driver ${SOURCES})
 target_link_libraries(hikcamera_ros_driver 
     ${OpenCV_LIBS}
     Eigen3::Eigen
-    hikcamera::hikcamera
 )
 ament_target_dependencies(hikcamera_ros_driver 
     rclcpp
     std_msgs
     hikcamera
+    cv_bridge
 )
 install (TARGETS hikcamera_ros_driver DESTINATION lib/${PROJECT_NAME})
 ament_package()
