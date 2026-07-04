@@ -10,10 +10,10 @@ Hikcamera:
   gain: 0.0
 
   # 白平衡
-  white_balance_auto: true
-  white_balance_temperature: 4500   # 可选
+  white_balance_auto: 1
   white_balance_red: 1.0
   white_balance_blue: 1.0
+  white_balance_greeen: 1.0
 
   # 基本图像调节
   brightness: 128

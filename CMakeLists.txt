@@ -19,6 +19,7 @@ find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4.5 REQUIRED)
 find_package(hikcamera  REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
 
@@ -34,9 +35,13 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 add_executable(hikcamera_ros_driver ${SOURCES})
+target_include_directories(hikcamera_ros_driver PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
 target_link_libraries(hikcamera_ros_driver 
     ${OpenCV_LIBS}
     Eigen3::Eigen
+    yaml-cpp::yaml-cpp
 )
 ament_target_dependencies(hikcamera_ros_driver 
     rclcpp
