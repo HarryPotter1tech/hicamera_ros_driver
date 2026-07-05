@@ -11,9 +11,9 @@ Hikcamera:
 
   # 白平衡
   white_balance_auto: 1
-  white_balance_red: 1.0
-  white_balance_blue: 1.0
-  white_balance_greeen: 1.0
+  white_balance_red: 512
+  white_balance_blue: 512
+  white_balance_green: 512
 
   # 基本图像调节
   brightness: 128
@@ -29,3 +29,10 @@ Hikcamera:
   roi: {x: 0, y: 0, width: 1280, height: 720}
   binning: 1
   denoise: 0
+
+  # 相机控制
+  timeout_ms: 2000
+  invert_image: false
+  software_sync: false
+  trigger_mode: false
+  fixed_framerate: true

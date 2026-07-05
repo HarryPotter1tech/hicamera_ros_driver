@@ -1,35 +1,100 @@
 #include "hikcamera_ros_driver/camera_driver.hpp"
 #include "yaml-cpp/yaml.h"
-#include <ctime>
 #include <expected>
-#include <hikcamera/capturer.hpp>
-#include <opencv2/opencv.hpp>
-#include <queue>
-#include <sys/shm.h>
-#include <thread>
-#include <yaml-cpp/node/node.h>
-#include <yaml-cpp/node/parse.h>
+#include <fcntl.h>
+#include <semaphore.h>
+#include <sys/mman.h>
+#include <unistd.h>
 namespace hikcamera_ros_driver {
-std::expected<void, std::string> ConfigsLoader(
-    std::string& yaml_config_path, hikcamera::Config& config, int image_width, int image_height) {
-    YAML::Node yaml_config     = YAML::Load(yaml_config_path);
+auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int& image_width,
+    int& image_height) -> std::expected<void, std::string> {
+    auto yaml_config           = YAML::LoadFile(yaml_config_path);
     config.white_balance_blue  = yaml_config["Hikcamera"]["white_balance_blue"].as<unsigned int>();
     config.white_balance_red   = yaml_config["Hikcamera"]["white_balance_red"].as<unsigned int>();
     config.white_balance_green = yaml_config["Hikcamera"]["white_balance_green"].as<unsigned int>();
-    config.auto_white_balance  = yaml_config["Hikcamera"]["white_balance_blue"].as<unsigned int>();
+    config.auto_white_balance  = yaml_config["Hikcamera"]["auto_white_balance"].as<unsigned int>();
     config.brightness          = yaml_config["Hikcamera"]["brightness"].as<unsigned int>();
-    config.exposure_us         = yaml_config["Hikcamera"]["exposure_time"].as<unsigned int>();
-    config.fixed_framerate     = yaml_config["Hikcamera"]["fps"].as<unsigned int>();
+    config.exposure_us         = yaml_config["Hikcamera"]["exposure_time"].as<float>();
+    config.framerate           = yaml_config["Hikcamera"]["fps"].as<float>();
     config.sharpness           = yaml_config["Hikcamera"]["sharpness"].as<unsigned int>();
-    config.gain                = yaml_config["Hikcamera"]["gain"].as<unsigned int>();
-    image_height               = yaml_config["Hikcamera"]["image_height"].as<unsigned int>();
-    image_width                = yaml_config["Hikcamera"]["image_width"].as<unsigned int>();
+    config.timeout_ms          = yaml_config["Hikcamera"]["timeout_ms"].as<unsigned int>();
+    config.invert_image        = yaml_config["Hikcamera"]["invert_image"].as<bool>();
+    config.software_sync       = yaml_config["Hikcamera"]["software_sync"].as<bool>();
+    config.trigger_mode        = yaml_config["Hikcamera"]["trigger_mode"].as<bool>();
+    config.fixed_framerate     = yaml_config["Hikcamera"]["fixed_framerate"].as<bool>();
+    config.gain                = yaml_config["Hikcamera"]["gain"].as<float>();
+    image_height               = yaml_config["Hikcamera"]["image_height"].as<int>();
+    image_width                = yaml_config["Hikcamera"]["image_width"].as<int>();
+    return { };
 }
-std::expected<bool, std::string> CameraInit(const hikcamera::Config& config) {
-    auto camera = std::make_shared<hikcamera::Camera>();
-    camera->initialize(config);
-    camera->connect();
+auto CameraInit(const hikcamera::Config& config, std::shared_ptr<hikcamera::Camera> camera)
+    -> std::expected<bool, std::string> {
+    if (auto result = camera->initialize(config); !result) return std::unexpected(result.error());
+    return { true };
 }
-std::expected<void, std::string> CameraThread() { }
+auto CameraThread(const hikcamera::Config& config) -> std::expected<void, std::string> {
+    return { };
+}
 
+}
+auto SHMInit(const std::string& shm_path_name, size_t shm_size, size_t sem_num = 1)
+    -> std::expected<int, std::string> {
+    int shm_fd = shm_open(shm_path_name.c_str(), O_CREAT | O_RDWR, 0666);
+    if (shm_fd == -1) {
+        return std::unexpected("Failed to create shared memory object");
+    }
+    if (ftruncate(shm_fd, shm_size) == -1) {
+        return std::unexpected("Failed to set size of shared memory object");
+    }
+    auto image_shm = reinterpret_cast<hikcamera_ros_driver::imageSHM*>(
+        mmap(nullptr, shm_size, PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0));
+    pthread_mutexattr_t mutex_attr;
+    pthread_mutexattr_init(&mutex_attr);
+    pthread_mutexattr_setpshared(&mutex_attr, PTHREAD_PROCESS_SHARED);
+    pthread_mutex_init(&image_shm->mutex, &mutex_attr);
+    sem_init(&image_shm->sem, 1, 0);
+    image_shm->read_index         = 0;
+    image_shm->write_index        = 0;
+    image_shm->is_shm_initialized = true;
+    return { shm_fd };
+}
+auto SHMWrite(int shm_fd, const std::vector<unsigned char>& data)
+    -> std::expected<void, std::string> {
+    auto image_shm = reinterpret_cast<hikcamera_ros_driver::imageSHM*>(mmap(nullptr,
+        sizeof(hikcamera_ros_driver::imageSHM), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0));
+    if (image_shm == MAP_FAILED) {
+        return std::unexpected("Failed to map shared memory object");
+    }
+    pthread_mutex_lock(&image_shm->mutex);
+    std::memcpy(image_shm->data, data.data(), data.size());
+    pthread_mutex_unlock(&image_shm->mutex);
+    sem_post(&image_shm->sem);
+    munmap(image_shm, sizeof(hikcamera_ros_driver::imageSHM));
+    return { };
+}
+auto SHMRead(int shm_fd, unsigned char (&data)[1920 * 1080][3])
+    -> std::expected<void, std::string> {
+    auto image_shm = reinterpret_cast<hikcamera_ros_driver::imageSHM*>(mmap(nullptr,
+        sizeof(hikcamera_ros_driver::imageSHM), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0));
+    if (image_shm == MAP_FAILED) {
+        return std::unexpected("Failed to map shared memory object");
+    }
+    sem_wait(&image_shm->sem);
+    pthread_mutex_lock(&image_shm->mutex);
+    std::memcpy(data, image_shm->data, sizeof(image_shm->data));
+    pthread_mutex_unlock(&image_shm->mutex);
+    munmap(image_shm, sizeof(hikcamera_ros_driver::imageSHM));
+    return { };
+}
+auto SHMClose(int shm_fd) -> std::expected<bool, std::string> {
+    if (close(shm_fd) == -1) {
+        return std::unexpected("Failed to close shared memory object");
+    }
+    return { true };
+}
+auto SHMUnlink(const std::string& shm_path_name) -> std::expected<bool, std::string> {
+    if (shm_unlink(shm_path_name.c_str()) == -1) {
+        return std::unexpected("Failed to unlink shared memory object");
+    }
+    return { true };
 }
