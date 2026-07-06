@@ -41,7 +41,7 @@ auto CameraInit(const hikcamera::Config& config, std::shared_ptr<hikcamera::Came
 }
 
 auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running)
-    -> std::expected<void, std::string> {
+    -> std::expected<std::thread, std::string> {
     auto camera = std::make_shared<hikcamera::Camera>();
     std::expected<bool, std::string> camera_init_result;
     std::expected<int, std::string> shm_init_result;
@@ -52,20 +52,24 @@ auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_ca
     if (shm_init_result = SHMInit("/hikcamera_shm", sizeof(imageSHM)); !shm_init_result) {
         return std::unexpected(shm_init_result.error());
     }
-
-    while (is_camera_running.load(std::memory_order_acquire)) {
-        if (imagedata = camera->read_image_with_timestamp(); !imagedata) {
-            return std::unexpected(imagedata.error());
-        };
-        if (auto result = SHMWrite(shm_init_result.value(), imagedata.value()); !result) {
-            return std::unexpected(result.error());
-        };
-    }
+    std::thread camera_thread([&]() {
+        while (is_camera_running.load(std::memory_order_acquire)) {
+            if (imagedata = camera->read_image_with_timestamp(); !imagedata) {
+                return std::unexpected(imagedata.error());
+            };
+            if (auto result = SHMWrite(shm_init_result.value(), imagedata.value()); !result) {
+                return std::unexpected(result.error());
+            };
+        }
+    });
+    return camera_thread;
 }
-auto CameraThreadStop(const hikcamera::Config& config, std::atomic<bool>& is_camera_running)
-    -> std::expected<void, std::string> {
+auto CameraThreadStop(std::thread& camera_thread, const hikcamera::Config& config,
+    std::atomic<bool>& is_camera_running) -> std::expected<void, std::string> {
     is_camera_running.store(false, std::memory_order_release);
-
+    if (camera_thread.joinable()) {
+        camera_thread.join();
+    }
     return { };
 } // namespace hikcamera_ros_driver
 
