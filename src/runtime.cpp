@@ -24,7 +24,7 @@ int main() {
         camera_thread = std::move(result.value());
     }
     rclcpp::spin(std::make_shared<rclcpp::Node>("hikcamera_ros_driver_node"));
-    hikcamera_ros_driver::CameraThreadStop(camera_thread, config, is_camera_running);
+    hikcamera_ros_driver::CameraThreadStop(camera_thread, is_camera_running);
     rclcpp::shutdown();
     return EXIT_SUCCESS;
 }

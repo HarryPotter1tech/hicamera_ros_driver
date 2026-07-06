@@ -55,23 +55,23 @@ auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_ca
     std::thread camera_thread([&]() {
         while (is_camera_running.load(std::memory_order_acquire)) {
             if (imagedata = camera->read_image_with_timestamp(); !imagedata) {
-                return std::unexpected(imagedata.error());
-            };
+                break;
+            }
             if (auto result = SHMWrite(shm_init_result.value(), imagedata.value()); !result) {
-                return std::unexpected(result.error());
-            };
+                break;
+            }
         }
     });
     return camera_thread;
 }
-auto CameraThreadStop(std::thread& camera_thread, const hikcamera::Config& config,
+auto CameraThreadStop(std::thread& camera_thread,
     std::atomic<bool>& is_camera_running) -> std::expected<void, std::string> {
     is_camera_running.store(false, std::memory_order_release);
     if (camera_thread.joinable()) {
         camera_thread.join();
     }
     return { };
-} // namespace hikcamera_ros_driver
+}
 
 // ── SHM ──
 

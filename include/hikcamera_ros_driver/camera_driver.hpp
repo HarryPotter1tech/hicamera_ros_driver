@@ -22,14 +22,14 @@ auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int
     int& image_height) -> std::expected<void, std::string>;
 auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running)
     -> std::expected<std::thread, std::string>;
-auto CameraThreadStop(std::thread& camera_thread, const hikcamera::Config& config,
+auto CameraThreadStop(std::thread& camera_thread,
     std::atomic<bool>& is_camera_running) -> std::expected<void, std::string>;
 auto CameraInit(const hikcamera::Config& config, std::shared_ptr<hikcamera::Camera> camera)
     -> std::expected<bool, std::string>;
-}
-
 auto SHMInit(const std::string& shm_path_name, size_t shm_size) -> std::expected<int, std::string>;
 auto SHMWrite(int shm_fd, const hikcamera::Camera::Image& data) -> std::expected<void, std::string>;
 auto SHMRead(int shm_fd, hikcamera::Camera::Image& data) -> std::expected<void, std::string>;
 auto SHMUnlink(const std::string& shm_path_name) -> std::expected<bool, std::string>;
 auto SHMClose(int shm_fd) -> std::expected<bool, std::string>;
+
+} // namespace hikcamera_ros_driver
