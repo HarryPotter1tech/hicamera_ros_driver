@@ -36,3 +36,4 @@ Hikcamera:
   software_sync: false
   trigger_mode: false
   fixed_framerate: true
+  shm_name: "/hikcamera_shm"

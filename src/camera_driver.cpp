@@ -11,7 +11,7 @@ namespace hikcamera_ros_driver {
 // ── Config ──
 
 auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int& image_width,
-    int& image_height) -> std::expected<void, std::string> {
+    int& image_height, std::string& shm_name) -> std::expected<void, std::string> {
     auto yaml_config           = YAML::LoadFile(yaml_config_path);
     config.white_balance_blue  = yaml_config["Hikcamera"]["white_balance_blue"].as<unsigned int>();
     config.white_balance_red   = yaml_config["Hikcamera"]["white_balance_red"].as<unsigned int>();
@@ -29,6 +29,8 @@ auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int
     config.gain                = yaml_config["Hikcamera"]["gain"].as<float>();
     image_height               = yaml_config["Hikcamera"]["image_height"].as<int>();
     image_width                = yaml_config["Hikcamera"]["image_width"].as<int>();
+    shm_name                   = yaml_config["Hikcamera"]["shm_name"]
+                                    .as<std::string>("/hikcamera_shm");
     return { };
 }
 
@@ -40,8 +42,8 @@ auto CameraInit(const hikcamera::Config& config, std::shared_ptr<hikcamera::Came
     return { true };
 }
 
-auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running)
-    -> std::expected<std::thread, std::string> {
+auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running,
+    const std::string& shm_name) -> std::expected<std::thread, std::string> {
     auto camera = std::make_shared<hikcamera::Camera>();
     std::expected<bool, std::string> camera_init_result;
     std::expected<int, std::string> shm_init_result;
@@ -49,7 +51,7 @@ auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_ca
     if (camera_init_result = CameraInit(config, camera); !camera_init_result) {
         return std::unexpected(camera_init_result.error());
     }
-    if (shm_init_result = SHMInit("/hikcamera_shm", sizeof(imageSHM)); !shm_init_result) {
+    if (shm_init_result = SHMInit(shm_name, sizeof(imageSHM)); !shm_init_result) {
         return std::unexpected(shm_init_result.error());
     }
     std::thread camera_thread([&]() {

@@ -19,9 +19,9 @@ typedef struct imageSHM {
     unsigned int counter     = 0;
 } imageSHM;
 auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int& image_width,
-    int& image_height) -> std::expected<void, std::string>;
-auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running)
-    -> std::expected<std::thread, std::string>;
+    int& image_height, std::string& shm_name) -> std::expected<void, std::string>;
+auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running,
+    const std::string& shm_name) -> std::expected<std::thread, std::string>;
 auto CameraThreadStop(std::thread& camera_thread,
     std::atomic<bool>& is_camera_running) -> std::expected<void, std::string>;
 auto CameraInit(const hikcamera::Config& config, std::shared_ptr<hikcamera::Camera> camera)
