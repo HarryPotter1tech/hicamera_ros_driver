@@ -14,22 +14,13 @@ namespace hikcamera_ros_driver {
 auto ConfigsLoader(rclcpp::Node& node, hikcamera::Config& config,
     int& /*image_width*/, int& /*image_height*/, std::string& shm_name)
     -> std::expected<void, std::string> {
-    int wb_blue = 0, wb_red = 0, wb_green = 0;
-    int awb = 0, bright = 0, shrp = 0, tmo = 0;
-    node.get_parameter("white_balance_blue", wb_blue);
-    node.get_parameter("white_balance_red", wb_red);
-    node.get_parameter("white_balance_green", wb_green);
-    node.get_parameter("auto_white_balance", awb);
-    node.get_parameter("brightness", bright);
-    node.get_parameter("sharpness", shrp);
-    node.get_parameter("timeout_ms", tmo);
-    config.white_balance_blue  = static_cast<unsigned int>(wb_blue);
-    config.white_balance_red   = static_cast<unsigned int>(wb_red);
-    config.white_balance_green = static_cast<unsigned int>(wb_green);
-    config.auto_white_balance  = static_cast<unsigned int>(awb);
-    config.brightness          = static_cast<unsigned int>(bright);
-    config.sharpness           = static_cast<unsigned int>(shrp);
-    config.timeout_ms          = static_cast<unsigned int>(tmo);
+    node.get_parameter("white_balance_blue", config.white_balance_blue);
+    node.get_parameter("white_balance_red", config.white_balance_red);
+    node.get_parameter("white_balance_green", config.white_balance_green);
+    node.get_parameter("auto_white_balance", config.auto_white_balance);
+    node.get_parameter("brightness", config.brightness);
+    node.get_parameter("sharpness", config.sharpness);
+    node.get_parameter("timeout_ms", config.timeout_ms);
 
     node.get_parameter("exposure_us", config.exposure_us);
     node.get_parameter("framerate", config.framerate);
