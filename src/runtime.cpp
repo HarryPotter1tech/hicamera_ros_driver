@@ -5,11 +5,6 @@ int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<rclcpp::Node>("hikcamera_ros_driver_node");
 
-    node->declare_parameter<std::string>("config_file",
-        "/workspace/ros_ws/third-party/hikcamera_ros_driver/config/hikcamera_config.yaml");
-    auto yaml_config_path = node->get_parameter("config_file").as_string();
-
-    auto camera            = std::make_shared<hikcamera::Camera>();
     auto config            = hikcamera::Config();
     auto image_width       = 0;
     auto image_height      = 0;
@@ -17,7 +12,7 @@ int main(int argc, char* argv[]) {
     auto is_camera_running = std::atomic<bool>(true);
     auto camera_thread     = std::thread();
     if (auto result = hikcamera_ros_driver::ConfigsLoader(
-            yaml_config_path, config, image_width, image_height, shm_name);
+            *node, config, image_width, image_height, shm_name);
         !result) {
         RCLCPP_ERROR(node->get_logger(), "Failed to load config: %s", result.error().c_str());
         return EXIT_FAILURE;

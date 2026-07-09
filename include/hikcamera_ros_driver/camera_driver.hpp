@@ -7,6 +7,11 @@
 #include <string>
 #include <thread>
 #include <vector>
+
+namespace rclcpp {
+class Node;
+}
+
 #define SLOT_NUM 4
 namespace hikcamera_ros_driver {
 typedef struct imageSHM {
@@ -18,8 +23,9 @@ typedef struct imageSHM {
     unsigned int write_index = -1;
     unsigned int counter     = 0;
 } imageSHM;
-auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int& image_width,
-    int& image_height, std::string& shm_name) -> std::expected<void, std::string>;
+auto ConfigsLoader(rclcpp::Node& node, hikcamera::Config& config,
+    int& image_width, int& image_height, std::string& shm_name)
+    -> std::expected<void, std::string>;
 auto CameraThreadStart(const hikcamera::Config& config, std::atomic<bool>& is_camera_running,
     const std::string& shm_name) -> std::expected<std::thread, std::string>;
 auto CameraThreadStop(std::thread& camera_thread,

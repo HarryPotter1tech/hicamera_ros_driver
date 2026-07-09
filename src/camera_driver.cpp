@@ -1,37 +1,62 @@
 #include "hikcamera_ros_driver/camera_driver.hpp"
-#include "yaml-cpp/yaml.h"
 #include <expected>
 #include <fcntl.h>
+#include <rclcpp/rclcpp.hpp>
 #include <semaphore.h>
 #include <sys/mman.h>
 #include <thread>
 #include <unistd.h>
+
 namespace hikcamera_ros_driver {
 
 // ── Config ──
 
-auto ConfigsLoader(std::string& yaml_config_path, hikcamera::Config& config, int& image_width,
-    int& image_height, std::string& shm_name) -> std::expected<void, std::string> {
-    auto yaml_config           = YAML::LoadFile(yaml_config_path);
-    config.white_balance_blue  = yaml_config["Hikcamera"]["white_balance_blue"].as<unsigned int>();
-    config.white_balance_red   = yaml_config["Hikcamera"]["white_balance_red"].as<unsigned int>();
-    config.white_balance_green = yaml_config["Hikcamera"]["white_balance_green"].as<unsigned int>();
-    config.auto_white_balance  = yaml_config["Hikcamera"]["auto_white_balance"].as<unsigned int>();
-    config.brightness          = yaml_config["Hikcamera"]["brightness"].as<unsigned int>();
-    config.exposure_us         = yaml_config["Hikcamera"]["exposure_time"].as<float>();
-    config.framerate           = yaml_config["Hikcamera"]["fps"].as<float>();
-    config.sharpness           = yaml_config["Hikcamera"]["sharpness"].as<unsigned int>();
-    config.timeout_ms          = yaml_config["Hikcamera"]["timeout_ms"].as<unsigned int>();
-    config.invert_image        = yaml_config["Hikcamera"]["invert_image"].as<bool>();
-    config.software_sync       = yaml_config["Hikcamera"]["software_sync"].as<bool>();
-    config.trigger_mode        = yaml_config["Hikcamera"]["trigger_mode"].as<bool>();
-    config.fixed_framerate     = yaml_config["Hikcamera"]["fixed_framerate"].as<bool>();
-    config.gain                = yaml_config["Hikcamera"]["gain"].as<float>();
-    image_height               = yaml_config["Hikcamera"]["image_height"].as<int>();
-    image_width                = yaml_config["Hikcamera"]["image_width"].as<int>();
-    shm_name                   = yaml_config["Hikcamera"]["shm_name"]
-                                    .as<std::string>("/hikcamera_shm");
-    return { };
+auto ConfigsLoader(rclcpp::Node& node, hikcamera::Config& config,
+    int& /*image_width*/, int& /*image_height*/, std::string& shm_name)
+    -> std::expected<void, std::string> {
+    node.declare_parameter<int>("white_balance_blue", 512);
+    node.declare_parameter<int>("white_balance_red", 512);
+    node.declare_parameter<int>("white_balance_green", 512);
+    node.declare_parameter<int>("auto_white_balance", 0);
+    node.declare_parameter<int>("brightness", 128);
+    node.declare_parameter<float>("exposure_us", 20000.0f);
+    node.declare_parameter<float>("framerate", 60.0f);
+    node.declare_parameter<int>("sharpness", 3);
+    node.declare_parameter<int>("timeout_ms", 2000);
+    node.declare_parameter<bool>("invert_image", false);
+    node.declare_parameter<bool>("software_sync", false);
+    node.declare_parameter<bool>("trigger_mode", false);
+    node.declare_parameter<bool>("fixed_framerate", true);
+    node.declare_parameter<float>("gain", 0.0f);
+    node.declare_parameter<std::string>("shm_name", "/hikcamera_shm");
+
+    int wb_blue = 512, wb_red = 512, wb_green = 512;
+    int awb = 0, bright = 128, shrp = 3, tmo = 2000;
+    node.get_parameter("white_balance_blue", wb_blue);
+    node.get_parameter("white_balance_red", wb_red);
+    node.get_parameter("white_balance_green", wb_green);
+    node.get_parameter("auto_white_balance", awb);
+    node.get_parameter("brightness", bright);
+    node.get_parameter("sharpness", shrp);
+    node.get_parameter("timeout_ms", tmo);
+    config.white_balance_blue  = static_cast<unsigned int>(wb_blue);
+    config.white_balance_red   = static_cast<unsigned int>(wb_red);
+    config.white_balance_green = static_cast<unsigned int>(wb_green);
+    config.auto_white_balance  = static_cast<unsigned int>(awb);
+    config.brightness          = static_cast<unsigned int>(bright);
+    config.sharpness           = static_cast<unsigned int>(shrp);
+    config.timeout_ms          = static_cast<unsigned int>(tmo);
+
+    node.get_parameter("exposure_us", config.exposure_us);
+    node.get_parameter("framerate", config.framerate);
+    node.get_parameter("invert_image", config.invert_image);
+    node.get_parameter("software_sync", config.software_sync);
+    node.get_parameter("trigger_mode", config.trigger_mode);
+    node.get_parameter("fixed_framerate", config.fixed_framerate);
+    node.get_parameter("gain", config.gain);
+    shm_name = node.get_parameter("shm_name").as_string();
+
+    return {};
 }
 
 // ── Camera ──
