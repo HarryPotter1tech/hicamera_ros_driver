@@ -1,4 +1,4 @@
-#include "hikcamera_ros_driver/camera_driver.hpp"
+#include "hikcamera_ros_driver/hikcamera_node.hpp"
 #include <rclcpp/rclcpp.hpp>
 
 int main(int argc, char* argv[]) {
