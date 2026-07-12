@@ -1,31 +1,10 @@
 #include "hikcamera_ros_driver/camera_driver.hpp"
-#include <hikcamera/capturer.hpp>
 #include <rclcpp/rclcpp.hpp>
+
 int main(int argc, char* argv[]) {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<rclcpp::Node>("hikcamera_ros_driver_node");
-
-    auto config            = hikcamera::Config();
-    auto image_width       = 0;
-    auto image_height      = 0;
-    std::string shm_name;
-    auto is_camera_running = std::atomic<bool>(true);
-    auto camera_thread     = std::thread();
-    if (auto result = hikcamera_ros_driver::ConfigsLoader(
-            *node, config, image_width, image_height, shm_name);
-        !result) {
-        RCLCPP_ERROR(node->get_logger(), "Failed to load config: %s", result.error().c_str());
-        return EXIT_FAILURE;
-    }
-    if (auto result = hikcamera_ros_driver::CameraThreadStart(config, is_camera_running, shm_name);
-        !result) {
-        RCLCPP_ERROR(node->get_logger(), "Failed to start camera: %s", result.error().c_str());
-        return EXIT_FAILURE;
-    } else {
-        camera_thread = std::move(result.value());
-    }
+    auto node = std::make_shared<hikcamera_ros_driver::HikCameraNode>();
     rclcpp::spin(node);
-    hikcamera_ros_driver::CameraThreadStop(camera_thread, is_camera_running);
     rclcpp::shutdown();
-    return EXIT_SUCCESS;
+    return 0;
 }

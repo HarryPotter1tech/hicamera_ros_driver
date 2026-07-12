@@ -102,18 +102,19 @@ auto SHMWrite(int shm_fd, const hikcamera::Camera::Image& data)
         return std::unexpected("Failed to map shared memory object");
     }
     pthread_mutex_lock(&image_shm->mutex);
-    image_shm->write_index = (image_shm->write_index + 1) % SLOT_NUM;
-    std::memcpy(image_shm->imagedata[image_shm->write_index], data.mat.data,
-        data.mat.total() * data.mat.elemSize());
-    image_shm->timestamp[image_shm->write_index] = data.timestamp;
+    image_shm->write_index++;
+    auto write_index = image_shm->write_index % SLOT_NUM;
+    std::memcpy(
+        image_shm->imagedata[write_index], data.mat.data, data.mat.total() * data.mat.elemSize());
+    image_shm->timestamp[write_index] = data.timestamp;
     pthread_mutex_unlock(&image_shm->mutex);
     sem_post(&image_shm->sem);
     munmap(image_shm, sizeof(hikcamera_ros_driver::imageSHM));
     return { };
 }
 
-auto SHMRead(int shm_fd, cv::Mat& out_mat, std::chrono::steady_clock::time_point& out_ts,
-    int width, int height) -> std::expected<void, std::string> {
+auto SHMRead(int shm_fd, cv::Mat& out_mat, std::chrono::steady_clock::time_point& out_ts, int width,
+    int height) -> std::expected<void, std::string> {
     auto image_shm = reinterpret_cast<hikcamera_ros_driver::imageSHM*>(mmap(nullptr,
         sizeof(hikcamera_ros_driver::imageSHM), PROT_READ | PROT_WRITE, MAP_SHARED, shm_fd, 0));
     if (image_shm == MAP_FAILED) {
@@ -130,9 +131,10 @@ auto SHMRead(int shm_fd, cv::Mat& out_mat, std::chrono::steady_clock::time_point
         } else {
             image_shm->read_index++;
         }
-        auto& frame = image_shm->imagedata[image_shm->read_index];
-        out_mat = cv::Mat(height, width, CV_8UC3, frame).clone();
-        out_ts  = image_shm->timestamp[image_shm->read_index];
+        auto read_index = (image_shm->read_index) % SLOT_NUM;
+        auto& frame     = image_shm->imagedata[read_index];
+        out_mat         = cv::Mat(height, width, CV_8UC3, frame).clone();
+        out_ts          = image_shm->timestamp[image_shm->read_index];
     } else {
         pthread_mutex_unlock(&image_shm->mutex);
         munmap(image_shm, sizeof(hikcamera_ros_driver::imageSHM));
@@ -155,5 +157,30 @@ auto SHMUnlink(const std::string& shm_path_name) -> std::expected<bool, std::str
         return std::unexpected("Failed to unlink shared memory object");
     }
     return { true };
+}
+
+HikCameraNode::HikCameraNode()
+    : Node("hikcamera_ros_driver_node") {
+    auto config       = hikcamera::Config();
+    int image_width   = 0;
+    int image_height  = 0;
+    std::string shm_name;
+
+    if (auto result = ConfigsLoader(*this, config, image_width, image_height, shm_name);
+        !result) {
+        RCLCPP_ERROR(this->get_logger(), "ConfigsLoader failed: %s", result.error().c_str());
+        return;
+    }
+
+    if (auto result = CameraThreadStart(config, is_camera_running_, shm_name);
+        !result) {
+        RCLCPP_ERROR(this->get_logger(), "CameraThreadStart failed: %s", result.error().c_str());
+    } else {
+        camera_thread_ = std::move(result.value());
+    }
+}
+
+HikCameraNode::~HikCameraNode() {
+    CameraThreadStop(camera_thread_, is_camera_running_);
 }
 }

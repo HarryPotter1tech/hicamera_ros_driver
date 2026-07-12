@@ -36,4 +36,14 @@ auto SHMRead(int shm_fd, cv::Mat& out_mat, std::chrono::steady_clock::time_point
 auto SHMUnlink(const std::string& shm_path_name) -> std::expected<bool, std::string>;
 auto SHMClose(int shm_fd) -> std::expected<bool, std::string>;
 
+class HikCameraNode final : public rclcpp::Node {
+public:
+    HikCameraNode();
+    ~HikCameraNode() override;
+
+private:
+    std::atomic<bool> is_camera_running_{true};
+    std::thread camera_thread_;
+};
+
 } // namespace hikcamera_ros_driver
