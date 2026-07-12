@@ -1,9 +1,8 @@
 #pragma once
 
-#include <atomic>
-#include <thread>
-
+#include "hikcamera_ros_driver/camera_bridge.hpp"
 #include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
 
 namespace hikcamera_ros_driver {
 
@@ -13,8 +12,8 @@ public:
     ~HikCameraNode() override;
 
 private:
-    std::atomic<bool> is_camera_running_{true};
-    std::thread camera_thread_;
+    camera_bridge::CameraBridge camera_shm_bridge_ { };
+    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
 };
 
 } // namespace hikcamera_ros_driver

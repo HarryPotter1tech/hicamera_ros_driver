@@ -1,33 +1,43 @@
 #include "hikcamera_ros_driver/hikcamera_node.hpp"
-#include "hikcamera_ros_driver/camera_driver.hpp"
-#include <hikcamera/capturer.hpp>
-#include <rclcpp/rclcpp.hpp>
+
+#include <cv_bridge/cv_bridge.hpp>
 
 namespace hikcamera_ros_driver {
 
 HikCameraNode::HikCameraNode()
     : Node("hikcamera_ros_driver_node") {
-    auto config       = hikcamera::Config();
-    int image_width   = 0;
-    int image_height  = 0;
-    std::string shm_name;
+    image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(camera_shm_bridge_.image_topic_, 10);
 
-    if (auto result = ConfigsLoader(*this, config, image_width, image_height, shm_name);
-        !result) {
-        RCLCPP_ERROR(this->get_logger(), "ConfigsLoader failed: %s", result.error().c_str());
+    auto ret = camera_shm_bridge_.load_config(*this);
+    if (!ret.has_value()) {
+        RCLCPP_ERROR(this->get_logger(), "load_config failed: %s", ret.error().c_str());
         return;
     }
 
-    if (auto result = CameraThreadStart(config, is_camera_running_, shm_name);
-        !result) {
-        RCLCPP_ERROR(this->get_logger(), "CameraThreadStart failed: %s", result.error().c_str());
-    } else {
-        camera_thread_ = std::move(result.value());
+    ret = camera_shm_bridge_.camera_init();
+    if (!ret.has_value()) {
+        RCLCPP_ERROR(this->get_logger(), "camera_init failed: %s", ret.error().c_str());
+        return;
+    }
+
+    ret = camera_shm_bridge_.camera_connect();
+    if (!ret.has_value()) {
+        RCLCPP_ERROR(this->get_logger(), "camera_connect failed: %s", ret.error().c_str());
+        return;
+    }
+
+    ret = camera_shm_bridge_.shm_init();
+    if (!ret.has_value()) {
+        RCLCPP_ERROR(this->get_logger(), "shm_init failed: %s", ret.error().c_str());
+        return;
+    }
+
+    ret = camera_shm_bridge_.camera_shm_thread(*image_pub_);
+    if (!ret.has_value()) {
+        RCLCPP_ERROR(this->get_logger(), "camera_shm_thread failed: %s", ret.error().c_str());
     }
 }
 
-HikCameraNode::~HikCameraNode() {
-    CameraThreadStop(camera_thread_, is_camera_running_);
-}
+HikCameraNode::~HikCameraNode() = default;
 
 } // namespace hikcamera_ros_driver
