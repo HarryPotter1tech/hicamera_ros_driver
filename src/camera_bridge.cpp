@@ -1,5 +1,6 @@
 #include "hikcamera_ros_driver/camera_bridge.hpp"
 
+#include <builtin_interfaces/msg/time.hpp>
 #include <cv_bridge/cv_bridge.hpp>
 #include <fcntl.h>
 #include <std_msgs/msg/header.hpp>
@@ -13,6 +14,23 @@ using namespace hikcamera;
 CameraBridge::~CameraBridge() { auto _ = camera_shm_thread_stop(); }
 
 auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::string> {
+    node.declare_parameter("white_balance_blue", hik_config_.white_balance_blue);
+    node.declare_parameter("white_balance_red", hik_config_.white_balance_red);
+    node.declare_parameter("white_balance_green", hik_config_.white_balance_green);
+    node.declare_parameter("auto_white_balance", hik_config_.auto_white_balance);
+    node.declare_parameter("brightness", hik_config_.brightness);
+    node.declare_parameter("sharpness", hik_config_.sharpness);
+    node.declare_parameter("timeout_ms", hik_config_.timeout_ms);
+    node.declare_parameter("exposure_us", hik_config_.exposure_us);
+    node.declare_parameter("framerate", hik_config_.framerate);
+    node.declare_parameter("invert_image", hik_config_.invert_image);
+    node.declare_parameter("software_sync", hik_config_.software_sync);
+    node.declare_parameter("trigger_mode", hik_config_.trigger_mode);
+    node.declare_parameter("fixed_framerate", hik_config_.fixed_framerate);
+    node.declare_parameter("gain", hik_config_.gain);
+    node.declare_parameter("shm_name", "/hikcamera_shm");
+    node.declare_parameter("image_topic", "/hikcamera_image");
+
     node.get_parameter("white_balance_blue", hik_config_.white_balance_blue);
     node.get_parameter("white_balance_red", hik_config_.white_balance_red);
     node.get_parameter("white_balance_green", hik_config_.white_balance_green);
@@ -20,7 +38,6 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.get_parameter("brightness", hik_config_.brightness);
     node.get_parameter("sharpness", hik_config_.sharpness);
     node.get_parameter("timeout_ms", hik_config_.timeout_ms);
-
     node.get_parameter("exposure_us", hik_config_.exposure_us);
     node.get_parameter("framerate", hik_config_.framerate);
     node.get_parameter("invert_image", hik_config_.invert_image);
@@ -66,11 +83,25 @@ auto CameraBridge::camera_shm_thread(rclcpp::Publisher<sensor_msgs::msg::Image>&
             if (!imagedata) break;
 
             // ROS publish first (real-time priority)
-            auto msg = cv_bridge::CvImage(std_msgs::msg::Header(), "bgr8", imagedata->mat).toImageMsg();
+            builtin_interfaces::msg::Time stamp;
+            stamp.sec = static_cast<int32_t>(
+                std::chrono::duration_cast<std::chrono::seconds>(
+                    imagedata->timestamp.time_since_epoch()).count());
+            stamp.nanosec = static_cast<uint32_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    imagedata->timestamp.time_since_epoch()).count() % 1000000000);
+            auto msg = cv_bridge::CvImage(
+                std_msgs::msg::Header(), "bgr8", imagedata->mat).toImageMsg();
+            msg->header.stamp = stamp;
             image_pub.publish(*msg);
 
             // SHM write second
-            if (!SHMWrite(shm_fd_, imagedata.value()).has_value()) break;
+            auto write_ret = SHMWrite(shm_fd_, imagedata.value());
+            if (!write_ret.has_value()) {
+                RCLCPP_ERROR(rclcpp::get_logger("CameraBridge"),
+                    "SHMWrite failed: %s", write_ret.error().c_str());
+                break;
+            }
         }
 
         if (!camera_->connected()) {
