@@ -8,10 +8,10 @@ hikcamera_ros_driver_node:
 
     # 曝光与增益
     exposure_us: 20000.0
-    gain: 0.0
+    gain: 12.0
 
     # 帧率
-    framerate: 60.0
+    framerate: 20.0
 
     # 图像调节
     brightness: 128
