@@ -18,8 +18,6 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.declare_parameter("white_balance_red", hik_config_.white_balance_red);
     node.declare_parameter("white_balance_green", hik_config_.white_balance_green);
     node.declare_parameter("auto_white_balance", hik_config_.auto_white_balance);
-    node.declare_parameter("brightness", hik_config_.brightness);
-    node.declare_parameter("sharpness", hik_config_.sharpness);
     node.declare_parameter("timeout_ms", hik_config_.timeout_ms);
     node.declare_parameter("exposure_us", hik_config_.exposure_us);
     node.declare_parameter("framerate", hik_config_.framerate);
@@ -35,8 +33,6 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.get_parameter("white_balance_red", hik_config_.white_balance_red);
     node.get_parameter("white_balance_green", hik_config_.white_balance_green);
     node.get_parameter("auto_white_balance", hik_config_.auto_white_balance);
-    node.get_parameter("brightness", hik_config_.brightness);
-    node.get_parameter("sharpness", hik_config_.sharpness);
     node.get_parameter("timeout_ms", hik_config_.timeout_ms);
     node.get_parameter("exposure_us", hik_config_.exposure_us);
     node.get_parameter("framerate", hik_config_.framerate);
