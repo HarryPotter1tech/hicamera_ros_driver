@@ -21,6 +21,8 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.declare_parameter("timeout_ms", hik_config_.timeout_ms);
     node.declare_parameter("exposure_us", hik_config_.exposure_us);
     node.declare_parameter("framerate", hik_config_.framerate);
+    node.declare_parameter("width", hik_config_.width);
+    node.declare_parameter("height", hik_config_.height);
     node.declare_parameter("invert_image", hik_config_.invert_image);
     node.declare_parameter("software_sync", hik_config_.software_sync);
     node.declare_parameter("trigger_mode", hik_config_.trigger_mode);
@@ -36,6 +38,8 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.get_parameter("timeout_ms", hik_config_.timeout_ms);
     node.get_parameter("exposure_us", hik_config_.exposure_us);
     node.get_parameter("framerate", hik_config_.framerate);
+    node.get_parameter("width", hik_config_.width);
+    node.get_parameter("height", hik_config_.height);
     node.get_parameter("invert_image", hik_config_.invert_image);
     node.get_parameter("software_sync", hik_config_.software_sync);
     node.get_parameter("trigger_mode", hik_config_.trigger_mode);
