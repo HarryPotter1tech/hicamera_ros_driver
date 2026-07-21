@@ -1,9 +1,6 @@
 #include "hikcamera_ros_driver/camera_bridge.hpp"
 
-#include <builtin_interfaces/msg/time.hpp>
-#include <cv_bridge/cv_bridge.hpp>
 #include <fcntl.h>
-#include <std_msgs/msg/header.hpp>
 #include <sys/mman.h>
 #include <unistd.h>
 
@@ -27,7 +24,6 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.declare_parameter("fixed_framerate", hik_config_.fixed_framerate);
     node.declare_parameter("gain", hik_config_.gain);
     node.declare_parameter("shm_name", "/hikcamera_shm");
-    node.declare_parameter("image_topic", "/hikcamera_image");
 
     node.get_parameter("white_balance_blue", hik_config_.white_balance_blue);
     node.get_parameter("white_balance_red", hik_config_.white_balance_red);
@@ -41,8 +37,7 @@ auto CameraBridge::load_config(rclcpp::Node& node) -> std::expected<void, std::s
     node.get_parameter("trigger_mode", hik_config_.trigger_mode);
     node.get_parameter("fixed_framerate", hik_config_.fixed_framerate);
     node.get_parameter("gain", hik_config_.gain);
-    shm_name_    = node.get_parameter("shm_name").as_string();
-    image_topic_ = node.get_parameter("image_topic").as_string();
+    shm_name_ = node.get_parameter("shm_name").as_string();
     return { };
 }
 
@@ -57,42 +52,33 @@ auto CameraBridge::camera_connect() -> std::expected<void, std::string> {
 }
 
 auto CameraBridge::shm_init() -> std::expected<void, std::string> {
-    auto ret = SHMInit(shm_name_, sizeof(imageSHM));
-    if (!ret.has_value()) {
-        return std::unexpected(ret.error());
+    auto fd_ret = SHMInit(shm_name_, sizeof(imageSHM));
+    if (!fd_ret.has_value()) {
+        return std::unexpected(fd_ret.error());
     }
-    shm_fd_ = ret.value();
+    shm_fd_ = fd_ret.value();
+
+    auto ptr_ret = SHMGetPtr(shm_fd_);
+    if (!ptr_ret.has_value()) {
+        SHMClose(shm_fd_);
+        shm_fd_ = -1;
+        return std::unexpected(ptr_ret.error());
+    }
+    shm_ptr_ = ptr_ret.value();
     return { };
 }
 
-auto CameraBridge::camera_shm_thread(rclcpp::Publisher<sensor_msgs::msg::Image>& image_pub)
+auto CameraBridge::camera_shm_thread()
     -> std::expected<void, std::string> {
     if (!camera_ || shm_fd_ == -1) {
         return std::unexpected("camera or shm not initialized");
     }
 
     is_camera_running_ = true;
-    camera_thread_ = std::thread([this, &image_pub]() {
+    camera_thread_ = std::thread([this]() {
         while (is_camera_running_.load(std::memory_order_acquire)
             && camera_->connected()) {
-            auto imagedata = camera_->read_image_with_timestamp();
-            if (!imagedata) break;
-
-            // ROS publish first (real-time priority)
-            builtin_interfaces::msg::Time stamp;
-            stamp.sec = static_cast<int32_t>(
-                std::chrono::duration_cast<std::chrono::seconds>(
-                    imagedata->timestamp.time_since_epoch()).count());
-            stamp.nanosec = static_cast<uint32_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    imagedata->timestamp.time_since_epoch()).count() % 1000000000);
-            auto msg = cv_bridge::CvImage(
-                std_msgs::msg::Header(), "bgr8", imagedata->mat).toImageMsg();
-            msg->header.stamp = stamp;
-            image_pub.publish(*msg);
-
-            // SHM write second
-            auto write_ret = SHMWrite(shm_fd_, imagedata.value());
+            auto write_ret = SHMWrite(shm_ptr_, *camera_);
             if (!write_ret.has_value()) {
                 RCLCPP_ERROR(rclcpp::get_logger("CameraBridge"),
                     "SHMWrite failed: %s", write_ret.error().c_str());
@@ -111,6 +97,8 @@ auto CameraBridge::camera_shm_thread(rclcpp::Publisher<sensor_msgs::msg::Image>&
 auto CameraBridge::camera_shm_thread_stop() -> std::expected<void, std::string> {
     is_camera_running_ = false;
     if (camera_thread_.joinable()) camera_thread_.join();
+    if (shm_ptr_) SHMReleasePtr(shm_ptr_);
+    shm_ptr_ = nullptr;
     if (shm_fd_ != -1) SHMClose(shm_fd_);
     shm_fd_ = -1;
     camera_.reset();

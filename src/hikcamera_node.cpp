@@ -1,7 +1,5 @@
 #include "hikcamera_ros_driver/hikcamera_node.hpp"
 
-#include <cv_bridge/cv_bridge.hpp>
-
 namespace hikcamera_ros_driver {
 
 HikCameraNode::HikCameraNode()
@@ -34,10 +32,7 @@ HikCameraNode::HikCameraNode()
     }
     RCLCPP_INFO(this->get_logger(), "shm_init succeeded");
 
-    image_pub_ = this->create_publisher<sensor_msgs::msg::Image>(
-        camera_shm_bridge_.image_topic_, 10);
-
-    ret = camera_shm_bridge_.camera_shm_thread(*image_pub_);
+    ret = camera_shm_bridge_.camera_shm_thread();
     if (!ret.has_value()) {
         RCLCPP_ERROR(this->get_logger(), "camera_shm_thread failed: %s", ret.error().c_str());
         throw std::runtime_error("camera_shm_thread failed: " + ret.error());

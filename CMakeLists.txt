@@ -13,12 +13,9 @@ endif()
 
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(std_msgs REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV 4.5 REQUIRED)
 find_package(hikcamera  REQUIRED)
-find_package(cv_bridge REQUIRED)
-find_package(sensor_msgs REQUIRED)
 find_package(yaml-cpp REQUIRED)
 
 file(GLOB SOURCES "src/*.cpp")
@@ -33,10 +30,7 @@ target_link_libraries(${PROJECT_NAME}
 )
 ament_target_dependencies(${PROJECT_NAME}
     rclcpp
-    std_msgs
-    sensor_msgs
     hikcamera
-    cv_bridge
 )
 
 install(TARGETS ${PROJECT_NAME} DESTINATION lib/${PROJECT_NAME})

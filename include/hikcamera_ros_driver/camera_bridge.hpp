@@ -10,7 +10,6 @@
 #include <hikcamera/capturer.hpp>
 #include <opencv2/core.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/image.hpp>
 
 namespace hikcamera_ros_driver::camera_bridge {
 
@@ -23,16 +22,14 @@ public:
     auto camera_init()                  -> std::expected<void, std::string>;
     auto camera_connect()               -> std::expected<void, std::string>;
     auto shm_init()                     -> std::expected<void, std::string>;
-    auto camera_shm_thread(rclcpp::Publisher<sensor_msgs::msg::Image>& image_pub)
-        -> std::expected<void, std::string>;
+    auto camera_shm_thread()            -> std::expected<void, std::string>;
     auto camera_shm_thread_stop()       -> std::expected<void, std::string>;
-
-    std::string image_topic_ = "/hikcamera_image";
 
 private:
     hikcamera::Config hik_config_;
     std::string shm_name_;
     int shm_fd_ = -1;
+    hikcamera::imageSHM* shm_ptr_ = nullptr;
     std::shared_ptr<hikcamera::Camera> camera_ = nullptr;
     std::atomic<bool> is_camera_running_{false};
     std::thread camera_thread_;

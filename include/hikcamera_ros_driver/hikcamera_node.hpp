@@ -2,7 +2,6 @@
 
 #include "hikcamera_ros_driver/camera_bridge.hpp"
 #include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/image.hpp>
 
 namespace hikcamera_ros_driver {
 
@@ -13,7 +12,6 @@ public:
 
 private:
     camera_bridge::CameraBridge camera_shm_bridge_ { };
-    rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr image_pub_;
 };
 
 } // namespace hikcamera_ros_driver
