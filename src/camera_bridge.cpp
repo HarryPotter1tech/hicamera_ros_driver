@@ -84,9 +84,10 @@ auto CameraBridge::camera_shm_thread()
             && camera_->connected()) {
             auto write_ret = SHMWrite(shm_ptr_, *camera_);
             if (!write_ret.has_value()) {
-                RCLCPP_ERROR(rclcpp::get_logger("CameraBridge"),
-                    "SHMWrite failed: %s", write_ret.error().c_str());
-                break;
+                RCLCPP_WARN(rclcpp::get_logger("CameraBridge"),
+                    "SHMWrite failed (retrying): %s", write_ret.error().c_str());
+                std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                continue;
             }
         }
 
