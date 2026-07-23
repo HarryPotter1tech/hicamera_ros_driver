@@ -82,6 +82,8 @@ auto CameraBridge::camera_shm_thread()
     camera_thread_ = std::thread([this]() {
         while (is_camera_running_.load(std::memory_order_acquire)
             && camera_->connected()) {
+            auto t0 = std::chrono::steady_clock::now();
+
             auto write_ret = SHMWrite(shm_ptr_, *camera_);
             if (!write_ret.has_value()) {
                 RCLCPP_WARN(rclcpp::get_logger("CameraBridge"),
@@ -89,6 +91,13 @@ auto CameraBridge::camera_shm_thread()
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;
             }
+
+            auto loop_time = std::chrono::steady_clock::now() - t0;
+            auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(loop_time).count();
+            auto frame = shm_ptr_->frame_counter.load(std::memory_order_relaxed);
+            RCLCPP_INFO(rclcpp::get_logger("CameraBridge"),
+                "TIMING: frame=%lu loop=%ldus (%.1ffps)",
+                (unsigned long)frame, (long)elapsed_us, 1e6 / elapsed_us);
         }
 
         if (!camera_->connected()) {
